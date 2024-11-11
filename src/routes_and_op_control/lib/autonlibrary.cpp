@@ -14,18 +14,20 @@ return it.
 */
 double avg_encoder()
 {
-    double total = 0.0;
+  double total = 0.0;
 
   // Gets number of motors for each motor group
-  int number_of_left_motors = left.get_position_all().size();
-  int number_of_right_motors = right.get_position_all().size();
+  int number_of_left_motors = 1;
+  int number_of_right_motors = 1;
 
   // Adds the position of each motor within the left motor group to total
-  for (int i = 0; i < number_of_left_motors; i++) total += left.get_position(i);
-
+  for (int i = 0; i < number_of_left_motors; i++) {
+    total += left.get_position(i);
+  }
   // Adds the position of each motor within the right motor group to total
-  for (int i = 0; i < number_of_right_motors; i++)
+  for (int i = 0; i < number_of_right_motors; i++){
     total += right.get_position(i);
+  }
 
   // Adds the number of motors there are and divides the tatal with the total
   // number of motors. Returns it afterwards.
@@ -103,6 +105,7 @@ your job). Allows your robot to move backwards and forwards on the feild.
 Enter a position and velocity into the parameters.
 */
 void advance(double inches, double velocity) {
+
   // Resets all motor's position values.
   all.tare_position_all();
 
@@ -113,25 +116,16 @@ void advance(double inches, double velocity) {
   double exit_time = pros::c::millis() + TIMEOUT;
 
   // While the code is below the exit time and more below the targeted distance.
-  while (exit_time > pros::c::millis()){
-
+  while (exit_time > pros::c::millis() && dist >= avg_encoder()){
     // All motors must move towards this distance at a certain velocity.
     all.move_velocity(velocity);
 
-    // master.print(1, 0, "%f", avg_encoder());
+    master.print(1, 0, "%f", avg_encoder());
     // If the robot is more than 80% to way to the distance, slow down the robot
     // by dividing the velocity by 5% over each time.
     // if (avg_encoder() < (dist * 0.80)){
     //   velocity = velocity / 1.05;
     // }
-
-    // If the robot has moved to the position, break out of the while loop.
-    // this if statement will not work rn, but you get the gist
-    
-    if (dist > avg_encoder()) {
-      break;
-    }
-    
 
     // Delays for 10 milliseconds to save memory.
     pros::delay(10);
