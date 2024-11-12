@@ -17,15 +17,15 @@ double avg_encoder()
   double total = 0.0;
 
   // Gets number of motors for each motor group
-  int number_of_left_motors = 1;
-  int number_of_right_motors = 1;
+  int number_of_left_motors = left.get_position_all().size();
+  int number_of_right_motors = right.get_position_all().size();
 
   // Adds the position of each motor within the left motor group to total
-  for (int i = 0; i < number_of_left_motors; i++) {
+  for (int i = 1; i < number_of_left_motors; i++) {
     total += left.get_position(i);
   }
   // Adds the position of each motor within the right motor group to total
-  for (int i = 0; i < number_of_right_motors; i++){
+  for (int i = 1; i < number_of_right_motors; i++){
     total += right.get_position(i);
   }
 
@@ -36,9 +36,9 @@ double avg_encoder()
 
 double previous_error = 0;
 
-double PD(double kp, double kd, double dist){
-  double error = dist - avg_encoder();
-  double tmp_p = error * 0.8;
+double PD(double kp, double kd, double dist, double current_position){
+  double error = dist - current_position;
+  double tmp_p = error * kp;
   double tmp_d = (error - previous_error) * kd;
   previous_error = error;
   return tmp_p + tmp_d;
@@ -104,10 +104,12 @@ your job). Allows your robot to move backwards and forwards on the feild.
 @params double pos, int velocity
 Enter a position and velocity into the parameters.
 */
-void advance(double inches, double velocity) {
+void advance(double inches, double kP, double kD) {
 
   // Resets all motor's position values.
   all.tare_position_all();
+
+  double cur_position = 0;
 
   // Calculates the distance needed to travel in inches.
   double dist = (inches / (WHL_DIAMETER * PI)) * 360 * GEAR_RATIO;
@@ -116,16 +118,15 @@ void advance(double inches, double velocity) {
   double exit_time = pros::c::millis() + TIMEOUT;
 
   // While the code is below the exit time and more below the targeted distance.
-  while (exit_time > pros::c::millis() && dist >= avg_encoder()){
+  while (exit_time > pros::c::millis() && dist >= cur_position){
     // All motors must move towards this distance at a certain velocity.
-    all.move_velocity(velocity);
+    all.move_velocity(PD(kP, kD, dist, cur_position));
 
-    master.print(1, 0, "%f", avg_encoder());
+    cur_position = cur_position + avg_encoder();
+
+    master.print(1, 0, "%f", cur_position);
     // If the robot is more than 80% to way to the distance, slow down the robot
     // by dividing the velocity by 5% over each time.
-    // if (avg_encoder() < (dist * 0.80)){
-    //   velocity = velocity / 1.05;
-    // }
 
     // Delays for 10 milliseconds to save memory.
     pros::delay(10);
@@ -134,6 +135,7 @@ void advance(double inches, double velocity) {
   // Makes sure the velocity stops
   all.move_velocity(0);
   pros::delay(10);
+  double previous_error = 0;
 }
 
 /* Method Description:
@@ -166,24 +168,11 @@ void turn(double heading, int velocity, bool do_not_auto_set_to_best_angle) {
 
   // If the exit time is not reached or the destination is not reached, loop the
   // code.
-  while (exit_time > pros::c::millis() &&
-         (((inertial.get_heading() > targeted_heading) &&
-           (targeted_heading > 0)) ||
-          ((inertial.get_heading() < targeted_heading) &&
-           (targeted_heading < 0)))) {
+  while (exit_time > pros::c::millis() && (((inertial.get_heading() > targeted_heading) && (targeted_heading > 0)) || ((inertial.get_heading() < targeted_heading) && (targeted_heading < 0)))) {
     // Rotates on the pivot right(default). It would be left if the targeted
     // heading is negative.
     left.move_velocity(velocity);
     right.move_velocity(-velocity);
-
-    // If the robot it 80% the way to the targeted heading, slow down the
-    // velocity by dividing the velocity by 5% each time.
-    if ((inertial.get_heading() > (targeted_heading * 0.80) &&
-         targeted_heading > 0) ||
-        (inertial.get_heading() < (targeted_heading * 0.80) &&
-         targeted_heading < 0)) {
-      velocity = velocity / 1.05;
-    }
 
     // Delays for 10 milliseconds to save memory.
     pros::delay(10);
