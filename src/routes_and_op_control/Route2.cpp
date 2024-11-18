@@ -3,5 +3,5 @@
 #include "lib/autonlibrary.hpp"
 
 void route2(){
-    turn(90, RPM_BLU,false);
+    turn(90, 600, 1, 1, 0.80, false);
 }

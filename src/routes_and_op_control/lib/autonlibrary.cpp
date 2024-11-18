@@ -2,7 +2,7 @@
 #include "autonlibrary.hpp"
 
 double GEAR_RATIO = 0.80;
-int TIMEOUT = 10000;
+int TIMEOUT = 5000;
 
 /* Method Description:
 Since get_position_all() returns a vector, we have to split up the motor
@@ -21,11 +21,11 @@ double avg_encoder()
   int number_of_right_motors = right.get_position_all().size();
 
   // Adds the position of each motor within the left motor group to total
-  for (int i = 1; i < number_of_left_motors; i++) {
+  for (int i = 0; i < number_of_left_motors-1; i++) {
     total += left.get_position(i);
   }
   // Adds the position of each motor within the right motor group to total
-  for (int i = 1; i < number_of_right_motors; i++){
+  for (int i = 0; i < number_of_right_motors-1; i++){
     total += right.get_position(i);
   }
 
@@ -36,8 +36,8 @@ double avg_encoder()
 
 double previous_error = 0;
 
-double PD(double kp, double kd, double dist, double current_position){
-  double error = dist - current_position;
+double PD(double kp, double kd, double target_dist, double current_position){
+  double error = target_dist - current_position;
   double tmp_p = error * kp;
   double tmp_d = (error - previous_error) * kd;
   previous_error = error;
@@ -104,27 +104,36 @@ your job). Allows your robot to move backwards and forwards on the feild.
 @params double pos, int velocity
 Enter a position and velocity into the parameters.
 */
-void advance(double inches, double kP, double kD) {
+void advance(double inches, double kP, double kD, double max_velocity, double decel_zone) {
 
   // Resets all motor's position values.
   all.tare_position_all();
 
-  double cur_position = 0;
-
   // Calculates the distance needed to travel in inches.
   double dist = (inches / (WHL_DIAMETER * PI)) * 360 * GEAR_RATIO;
+
+  double velocity = max_velocity;
 
   // Calculates the exit time for the route incase the route takes too long.
   double exit_time = pros::c::millis() + TIMEOUT;
 
   // While the code is below the exit time and more below the targeted distance.
-  while (exit_time > pros::c::millis() && dist >= cur_position){
+  while (exit_time > pros::c::millis() && dist >= avg_encoder()){
+
+    if (((avg_encoder() > (dist * decel_zone)) && (dist > 0)) || ((avg_encoder() < (dist * decel_zone)) && (dist < 0))){
+      velocity = PD(kP, kD, dist, avg_encoder());
+    }
+
     // All motors must move towards this distance at a certain velocity.
-    all.move_velocity(PD(kP, kD, dist, cur_position));
 
-    cur_position = cur_position + avg_encoder();
+    master.print(1, 0, "%f", avg_encoder());
 
-    master.print(1, 0, "%f", cur_position);
+    all.move_velocity(velocity);
+
+    if (velocity > max_velocity){
+      velocity = max_velocity;
+    }
+
     // If the robot is more than 80% to way to the distance, slow down the robot
     // by dividing the velocity by 5% over each time.
 
@@ -147,10 +156,12 @@ fastest heading. (PID not fully implemented)
 Enter the desired heading, the velocity, and if you want the code to find the
 best heading to turn to.
 */
-void turn(double heading, int velocity, bool do_not_auto_set_to_best_angle) {
+void turn(double heading, int max_velocity, double kP, double kD, double decel_zone, bool do_not_auto_set_to_best_angle) {
   // Resets imu
   inertial.reset();
   double targeted_heading = find_nearest_heading(heading);
+
+  double velocity = max_velocity;
 
   // If you don't want the code to automatically set it to the best angle, the
   // targeted heading will be equal to heading.
@@ -168,11 +179,19 @@ void turn(double heading, int velocity, bool do_not_auto_set_to_best_angle) {
 
   // If the exit time is not reached or the destination is not reached, loop the
   // code.
-  while (exit_time > pros::c::millis() && (((inertial.get_heading() > targeted_heading) && (targeted_heading > 0)) || ((inertial.get_heading() < targeted_heading) && (targeted_heading < 0)))) {
+  while (exit_time > pros::c::millis() && (((inertial.get_heading() < targeted_heading) && (targeted_heading > 0)) || ((inertial.get_heading() > targeted_heading) && (targeted_heading < 0)))) {
     // Rotates on the pivot right(default). It would be left if the targeted
     // heading is negative.
     left.move_velocity(velocity);
     right.move_velocity(-velocity);
+
+    if (((inertial.get_heading() > (targeted_heading*decel_zone)) && (targeted_heading > 0)) || ((inertial.get_heading() < (targeted_heading*decel_zone)) && (targeted_heading < 0))){
+      velocity = PD(kP, kD, targeted_heading, inertial.get_heading());
+    }
+
+    if (velocity > max_velocity){
+      velocity = max_velocity;
+    }
 
     // Delays for 10 milliseconds to save memory.
     pros::delay(10);

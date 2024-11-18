@@ -4,7 +4,7 @@
 #include "pros/rtos.hpp"
 
 void route1(){
-    all.set_encoder_units_all(ENCODER_ROTATIONS);
+    all.set_encoder_units_all(ENCODER_DEGREES);
     pros::delay(1000);
-    advance(1, 600);
+    advance(44, 1, 1, 300, 0);
 }
