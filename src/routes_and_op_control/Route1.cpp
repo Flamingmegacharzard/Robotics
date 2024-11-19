@@ -6,5 +6,5 @@
 void route1(){
     all.set_encoder_units_all(ENCODER_DEGREES);
     pros::delay(1000);
-    advance(44, 1, 1, 300, 0);
+    turn(1000000, 300, 1, 1, 0, false);
 }

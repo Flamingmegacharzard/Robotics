@@ -118,10 +118,14 @@ void advance(double inches, double kP, double kD, double max_velocity, double de
   double exit_time = pros::c::millis() + TIMEOUT;
 
   // While the code is below the exit time and more below the targeted distance.
-  while (exit_time > pros::c::millis() && dist >= avg_encoder()){
+  while (exit_time > pros::c::millis()){
 
-    if (((avg_encoder() > (dist * decel_zone)) && (dist > 0)) || ((avg_encoder() < (dist * decel_zone)) && (dist < 0))){
+    if (((avg_encoder() >= (dist * decel_zone)) && (dist > 0)) || ((avg_encoder() <= (dist * decel_zone)) && (dist < 0))){
       velocity = PD(kP, kD, dist, avg_encoder());
+    }
+
+    if (((dist - 1) <= avg_encoder()) && (avg_encoder() <= (dist + 1))){
+      break;
     }
 
     // All motors must move towards this distance at a certain velocity.
@@ -156,7 +160,7 @@ fastest heading. (PID not fully implemented)
 Enter the desired heading, the velocity, and if you want the code to find the
 best heading to turn to.
 */
-void turn(double heading, int max_velocity, double kP, double kD, double decel_zone, bool do_not_auto_set_to_best_angle) {
+void turn(double heading, double max_velocity, double kP, double kD, double decel_zone, bool do_not_auto_set_to_best_angle) {
   // Resets imu
   inertial.reset();
   double targeted_heading = find_nearest_heading(heading);
@@ -169,6 +173,7 @@ void turn(double heading, int max_velocity, double kP, double kD, double decel_z
     targeted_heading = heading;
   }
 
+
   // If the targeted heading is negative, reverse the velocity/motors
   if (targeted_heading < 0) {
     velocity = -velocity;
@@ -179,14 +184,19 @@ void turn(double heading, int max_velocity, double kP, double kD, double decel_z
 
   // If the exit time is not reached or the destination is not reached, loop the
   // code.
-  while (exit_time > pros::c::millis() && (((inertial.get_heading() < targeted_heading) && (targeted_heading > 0)) || ((inertial.get_heading() > targeted_heading) && (targeted_heading < 0)))) {
+  while (exit_time > pros::c::millis()) {
     // Rotates on the pivot right(default). It would be left if the targeted
     // heading is negative.
+    master.print(1, 0, "%d", inertial.get_heading());
     left.move_velocity(velocity);
     right.move_velocity(-velocity);
 
-    if (((inertial.get_heading() > (targeted_heading*decel_zone)) && (targeted_heading > 0)) || ((inertial.get_heading() < (targeted_heading*decel_zone)) && (targeted_heading < 0))){
+    if (((inertial.get_heading() >= (targeted_heading*decel_zone)) && (targeted_heading > 0)) || (((inertial.get_heading() <= (targeted_heading*decel_zone))) && (targeted_heading < 0))){
       velocity = PD(kP, kD, targeted_heading, inertial.get_heading());
+    }
+
+    if (((targeted_heading - 1) <= inertial.get_heading()) && (inertial.get_heading() <= (targeted_heading + 1))){
+      break;
     }
 
     if (velocity > max_velocity){

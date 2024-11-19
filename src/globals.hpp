@@ -38,7 +38,7 @@ inline pros::MotorGroup left({1,2});
 inline pros::MotorGroup right({-3,-4});
 inline pros::MotorGroup all({1,2,-3,-4});
 inline pros::adi::DigitalOut piston('A');
-inline pros::Imu inertial(7);
+inline pros::Imu inertial(9);
 
 
 /*
